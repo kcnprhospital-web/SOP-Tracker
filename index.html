@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOP Amendment Tracker — KCPH</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --blue:   #185FA5; --blue-lt: #E6F1FB; --blue-dk: #0C447C;
+    --green:  #3B6D11; --green-lt:#EAF3DE; --green-dk:#27500A;
+    --amber:  #854F0B; --amber-lt:#FAEEDA; --amber-dk:#633806;
+    --red:    #A32D2D; --red-lt:  #FCEBEB; --red-dk:  #791F1F;
+    --purple: #534AB7; --purple-lt:#EEEDFE;--purple-dk:#3C3489;
+    --teal:   #0F6E56; --teal-lt: #E1F5EE; --teal-dk: #085041;
+    --gray:   #5F5E5A; --gray-lt: #F1EFE8; --gray-dk: #444441;
+    --text:   #1a1a1a; --text2: #5a5a5a; --text3: #8a8a8a;
+    --border: #e0e0e0; --border2: #c8c8c8;
+    --bg:     #ffffff; --bg2: #f7f7f5; --bg3: #f0ede8;
+    --radius: 8px; --radius-lg: 12px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+    --mono: 'Consolas', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); color: var(--text); background: var(--bg2); font-size: 14px; }
+
+  header { background: var(--blue); color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .header-title h1 { font-size: 18px; font-weight: 600; letter-spacing: .02em; }
+  .header-title span { font-size: 12px; opacity: .8; margin-top: 2px; display: block; }
+  .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .conn-badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(255,255,255,.15); }
+  .conn-badge.ok  { background: rgba(59,109,17,.5); }
+  .conn-badge.err { background: rgba(163,45,45,.5); }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .stat { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .stat-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .stat-val { font-size: 24px; font-weight: 600; }
+  .stat-val.danger { color: var(--red); }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .toolbar input, .toolbar select { border: 1px solid var(--border); border-radius: var(--radius); padding: 7px 11px; font-size: 13px; font-family: var(--font); background: var(--bg); color: var(--text); }
+  .toolbar input { flex: 1; min-width: 160px; }
+  .toolbar input:focus, .toolbar select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(24,95,165,.12); }
+
+  .export-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .export-bar span { font-size: 12px; color: var(--text2); }
+
+  button { font-family: var(--font); cursor: pointer; }
+  .btn { border: 1px solid var(--border2); background: var(--bg); color: var(--text); border-radius: var(--radius); padding: 7px 13px; font-size: 13px; transition: background .15s; }
+  .btn:hover { background: var(--bg3); }
+  .btn:active { transform: scale(.98); }
+  .btn-blue  { background: var(--blue);  color: #fff; border-color: var(--blue);  }
+  .btn-blue:hover  { background: var(--blue-dk); }
+  .btn-green { background: var(--green); color: #fff; border-color: var(--green); }
+  .btn-green:hover { background: var(--green-dk); }
+  .btn-teal  { background: var(--teal);  color: #fff; border-color: var(--teal);  }
+  .btn-teal:hover  { background: var(--teal-dk); }
+  .btn-sm { padding: 5px 9px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border2); background: var(--bg); color: var(--text); }
+  .btn-sm:hover { background: var(--bg3); }
+  .btn-icon { padding: 5px 7px; }
+
+  .tbl-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text2); background: var(--bg2); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: var(--text); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg2); }
+
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .b-draft    { background: var(--blue-lt);   color: var(--blue-dk);   }
+  .b-review   { background: var(--amber-lt);  color: var(--amber-dk);  }
+  .b-approved { background: var(--green-lt);  color: var(--green-dk);  }
+  .b-revised  { background: var(--purple-lt); color: var(--purple-dk); }
+  .b-expired  { background: var(--red-lt);    color: var(--red-dk);    }
+
+  .review-type-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .rt-periodic  { background: var(--teal-lt);   color: var(--teal-dk);   }
+  .rt-triggered { background: var(--amber-lt);  color: var(--amber-dk);  }
+  .rt-incident  { background: var(--red-lt);    color: var(--red-dk);    }
+  .rt-initial   { background: var(--blue-lt);   color: var(--blue-dk);   }
+  .rt-other     { background: var(--gray-lt);   color: var(--gray-dk);   }
+
+  .outcome-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .oc-no-change  { background: var(--green-lt);  color: var(--green-dk);  }
+  .oc-minor      { background: var(--teal-lt);   color: var(--teal-dk);   }
+  .oc-major      { background: var(--amber-lt);  color: var(--amber-dk);  }
+  .oc-return     { background: var(--purple-lt); color: var(--purple-dk); }
+  .oc-withdrawn  { background: var(--red-lt);    color: var(--red-dk);    }
+
+  .overdue { color: var(--red); font-weight: 600; }
+
+  /* ── Modal ── */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: center; justify-content: center; padding: 16px; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--bg); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 0; width: 640px; max-width: 100%; max-height: 92vh; overflow: hidden; display: flex; flex-direction: column; }
+  .modal-head { padding: 20px 24px 0; flex-shrink: 0; }
+  .modal-head h3 { font-size: 16px; font-weight: 600; margin-bottom: 14px; }
+  .modal-body { padding: 0 24px 0; overflow-y: auto; flex: 1; }
+  .modal-foot { padding: 14px 24px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+  /* Tabs */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin: 0 -24px; padding: 0 24px; gap: 0; }
+  .tab { padding: 10px 18px; font-size: 13px; font-weight: 500; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab-panel { display: none; padding: 18px 0; }
+  .tab-panel.active { display: block; }
+
+  /* Form */
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+  .form-row input, .form-row select, .form-row textarea { width: 100%; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 11px; font-family: var(--font); font-size: 13px; color: var(--text); background: var(--bg); }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(24,95,165,.12); }
+  .form-row textarea { height: 72px; resize: vertical; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* Detail info grid */
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .detail-field label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 3px; }
+  .detail-field span { font-size: 13px; }
+
+  /* Review timeline */
+  .review-timeline { position: relative; }
+  .review-timeline::before { content: ''; position: absolute; left: 15px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+  .review-entry { display: flex; gap: 14px; padding-bottom: 20px; position: relative; }
+  .review-entry:last-child { padding-bottom: 0; }
+  .review-dot { width: 30px; height: 30px; border-radius: 50%; background: var(--bg); border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; position: relative; z-index: 1; }
+  .review-dot.periodic  { border-color: var(--teal);   background: var(--teal-lt);  }
+  .review-dot.triggered { border-color: var(--amber);  background: var(--amber-lt); }
+  .review-dot.incident  { border-color: var(--red);    background: var(--red-lt);   }
+  .review-dot.initial   { border-color: var(--blue);   background: var(--blue-lt);  }
+  .review-dot.other     { border-color: var(--gray);   background: var(--gray-lt);  }
+  .review-content { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .review-content-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .review-content-title { font-weight: 600; font-size: 13px; }
+  .review-content-meta { font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+  .review-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+  .review-note { font-size: 12px; color: var(--text2); line-height: 1.5; }
+  .review-empty { text-align: center; padding: 32px 16px; color: var(--text2); font-size: 13px; }
+  .review-empty-icon { font-size: 28px; margin-bottom: 8px; }
+
+  .loading { text-align: center; padding: 40px; color: var(--text2); }
+  .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .setup-banner { background: var(--amber-lt); border: 1px solid #EF9F27; border-radius: var(--radius); padding: 14px 18px; margin-bottom: 18px; font-size: 13px; color: var(--amber-dk); display: none; }
+  .setup-banner a { color: var(--blue); }
+  .mono { font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,.06); padding: 2px 6px; border-radius: 4px; }
+
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--green); color: #fff; padding: 10px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 500; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+  #toast.show { opacity: 1; }
+  #toast.err  { background: var(--red); }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .detail-grid { grid-template-columns: 1fr; }
+    header { padding: 12px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <h1>SOP Amendment Tracker</h1>
+    <span>Kampong Chhnang Provincial Hospital — CHAS Accreditation</span>
+  </div>
+  <div class="header-actions">
+    <span class="conn-badge" id="connBadge">Connecting…</span>
+    <button class="btn btn-blue" onclick="openAdd()">+ Add SOP</button>
+  </div>
+</header>
+
+<main>
+  <div class="setup-banner" id="setupBanner">
+    ⚠️ <strong>GAS URL not configured.</strong> Open <span class="mono">index.html</span>, find <span class="mono">GAS_URL</span> at the top of the script, and paste your deployed Web App URL.
+    <a href="https://developers.google.com/apps-script/guides/web" target="_blank">Setup guide →</a>
+  </div>
+
+  <div class="stats" id="statsBar">
+    <div class="stat"><div class="stat-label">Loading…</div><div class="stat-val">—</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="searchBox" placeholder="Search code, title, owner, group…" oninput="renderTable()">
+    <select id="filterStatus" onchange="renderTable()">
+      <option value="">All statuses</option>
+      <option value="Writing">Writing</option>
+      <option value="Under Review">Under Review</option>
+      <option value="Approved">Approved</option>
+      <option value="Superseded">Superseded</option>
+    </select>
+    <select id="filterDept" onchange="renderTable()">
+      <option value="">All groups</option>
+      <option value="PFR">PFR — Patient &amp; Family Rights</option>
+      <option value="LM">LM — Leadership &amp; Management</option>
+      <option value="QIS">QIS — Quality Improvement &amp; Safety</option>
+      <option value="IPC">IPC — Infection Prevention &amp; Control</option>
+      <option value="HR">HR — Human Resources</option>
+      <option value="PC">PC — Patient Care</option>
+      <option value="MM">MM — Medication Management</option>
+      <option value="DS">DS — Diagnostic Services</option>
+      <option value="SS">SS — Support Services</option>
+      <option value="ESS">ESS — Environment &amp; Safety Standards</option>
+      <option value="HIM">HIM — Health Information Management</option>
+    </select>
+    <button class="btn" onclick="loadData()">↺ Refresh</button>
+  </div>
+
+  <div class="export-bar">
+    <span>Export to Excel:</span>
+    <button class="btn btn-green" onclick="exportExcel('all')">📋 All SOPs</button>
+    <button class="btn btn-green" onclick="exportExcel('filtered')">🔍 Current view</button>
+    <button class="btn btn-green" onclick="exportExcel('overdue')">⚠️ Overdue only</button>
+    <button class="btn btn-green" onclick="exportExcel('summary')">📊 Summary report</button>
+  </div>
+
+  <div class="tbl-card">
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('code')"    style="width:100px">Code <span id="s-code"></span></th>
+            <th onclick="sortBy('title')"   style="width:210px">Title <span id="s-title"></span></th>
+            <th onclick="sortBy('dept')"    style="width:65px">Group <span id="s-dept"></span></th>
+            <th style="width:48px">Ver.</th>
+            <th onclick="sortBy('revDate')" style="width:105px">Next review <span id="s-revDate"></span></th>
+            <th onclick="sortBy('status')"  style="width:105px">Status <span id="s-status"></span></th>
+            <th style="width:55px; text-align:center;">Reviews</th>
+            <th style="width:130px">Owner</th>
+            <th style="width:90px">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tblBody">
+          <tr><td colspan="9"><div class="loading"><div class="spinner"></div><br>Loading SOPs…</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- ══ ADD / EDIT SOP MODAL ══════════════════════════════════ -->
+<div class="overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Add new SOP</h3>
+    </div>
+    <div class="modal-body" style="padding: 16px 24px;">
+      <div class="form-grid">
+        <div class="form-row"><label>SOP code *</label><input type="text" id="fCode" placeholder="e.g. IPC-SOP-001"></div>
+        <div class="form-row"><label>Version *</label><input type="text" id="fVer" placeholder="e.g. 1.0"></div>
+      </div>
+      <div class="form-row"><label>Title *</label><input type="text" id="fTitle" placeholder="Full SOP title in English or Khmer"></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Standard group</label>
+          <select id="fDept">
+            <option value="">— Select group —</option>
+            <option value="PFR">PFR — Patient &amp; Family Rights</option>
+            <option value="LM">LM — Leadership &amp; Management</option>
+            <option value="QIS">QIS — Quality Improvement &amp; Safety</option>
+            <option value="IPC">IPC — Infection Prevention &amp; Control</option>
+            <option value="HR">HR — Human Resources</option>
+            <option value="PC">PC — Patient Care</option>
+            <option value="MM">MM — Medication Management</option>
+            <option value="DS">DS — Diagnostic Services</option>
+            <option value="SS">SS — Support Services</option>
+            <option value="ESS">ESS — Environment &amp; Safety Standards</option>
+            <option value="HIM">HIM — Health Information Management</option>
+          </select>
+        </div>
+        <div class="form-row"><label>CHAS standard</label><input type="text" id="fStd" placeholder="e.g. IPC-1, QIS-3"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Document owner</label><input type="text" id="fOwner" placeholder="Name / Role"></div>
+        <div class="form-row"><label>Reviewer</label><input type="text" id="fReviewer" placeholder="Name / Role"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Approving authority</label><input type="text" id="fApprover" placeholder="Dr. / Mr."></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Effective date</label><input type="date" id="fEffDate"></div>
+        <div class="form-row"><label>Next review date</label><input type="date" id="fRevDate"></div>
+      </div>
+      <div class="form-row"><label>Status</label>
+        <select id="fStatus">
+          <option value="Writing">Writing</option>
+          <option value="Under Review">Under Review</option>
+          <option value="Approved">Approved</option>
+          <option value="Superseded">Superseded</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Notes</label>
+        <textarea id="fNotes" placeholder="General notes about this SOP…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-blue" onclick="saveForm()" id="saveBtn">Save SOP</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DETAIL MODAL (tabbed) ═════════════════════════════════ -->
+<div class="overlay" id="detailModal">
+  <div class="modal" style="width:680px;">
+    <div class="modal-head">
+      <h3 id="detailTitle">SOP details</h3>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('info')">SOP information</div>
+        <div class="tab" onclick="switchTab('reviews')" id="reviewsTab">Review history</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- Tab: Info -->
+      <div class="tab-panel active" id="panel-info">
+        <div id="detailInfo"></div>
+      </div>
+      <!-- Tab: Reviews -->
+      <div class="tab-panel" id="panel-reviews">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div style="font-size:13px; color:var(--text2);" id="reviewCount"></div>
+          <button class="btn btn-teal" onclick="openAddReview()">+ Add review record</button>
+        </div>
+        <div class="review-timeline" id="reviewTimeline"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('detailModal')">Close</button>
+      <button class="btn btn-green" onclick="exportSingle()">⬇ Export Excel</button>
+      <button class="btn" style="background:#7B2D8B;color:#fff;border-color:#7B2D8B;" onmouseover="this.style.background='#5e2070'" onmouseout="this.style.background='#7B2D8B'" onclick="exportReviewHTML()">📄 Amendment Page (HTML)</button>
+      <button class="btn btn-blue" onclick="editFromDetail()">Edit SOP</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD REVIEW MODAL ══════════════════════════════════════ -->
+<div class="overlay" id="reviewModal">
+  <div class="modal" style="width:560px;">
+    <div class="modal-head">
+      <h3 id="reviewModalTitle">Add review record</h3>
+    </div>
+    <div class="modal-body" style="padding: 16px 24px;">
+      <div class="form-grid">
+        <div class="form-row"><label>Review date *</label><input type="date" id="rDate"></div>
+        <div class="form-row"><label>Review type *</label>
+          <select id="rType">
+            <option value="Writing">1. Writing</option>
+            <option value="Review">2. Review</option>
+            <option value="Approval">3. Approval</option>
+            <option value="Periodic Review">Periodic Review</option>
+            <option value="Amendment">Amendment</option>
+            <option value="Post-incident">Post-incident Review</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Written / revised by *</label><input type="text" id="rBy" placeholder="Name / Role"></div>
+        <div class="form-row"><label>Reviewer</label><input type="text" id="rReviewer" placeholder="Name / Role"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Version reviewed</label><input type="text" id="rVer" placeholder="e.g. 1.0, 2.0"></div>
+      </div>
+      <div class="form-row"><label>Outcome</label>
+        <select id="rOutcome">
+          <option value="Approved — no change">Approved — no change (SOP remains current)</option>
+          <option value="Approved — minor amendment">Approved — minor amendment (editorial / formatting)</option>
+          <option value="Approved — major amendment">Approved — major amendment (content / process changes)</option>
+          <option value="Returned for revision">Returned for revision</option>
+          <option value="Superseded">Superseded / replaced</option>
+        </select>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>New version (if revised)</label><input type="text" id="rNewVer" placeholder="e.g. 2.0"></div>
+        <div class="form-row"><label>Next review date</label><input type="date" id="rNextDate"></div>
+      </div>
+      <div class="form-row"><label>Review findings &amp; notes</label>
+        <textarea id="rNotes" placeholder="Summarise what was reviewed, findings, changes made, or reasons for no change…" style="height:90px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('reviewModal')">Cancel</button>
+      <button class="btn btn-teal" onclick="saveReview()" id="reviewSaveBtn">Save review</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  CONFIGURATION — paste your GAS Web App URL below
+// ══════════════════════════════════════════════════════════════
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxf2GevVrZjDXPTNB93DGAuBPqE-sys3Z-G6OIxuucQWGuHMhaLS8vaR4Jj3syRoBs/exec';
+// ══════════════════════════════════════════════════════════════
+
+const STATUSES = {
+  'Writing':'b-draft','Under Review':'b-review',
+  'Approved':'b-approved','Superseded':'b-expired'
+};
+const REVIEW_TYPES = {
+  'Writing':'rt-initial','Review':'rt-periodic',
+  'Approval':'rt-other','Periodic Review':'rt-periodic',
+  'Amendment':'rt-triggered','Post-incident':'rt-incident'
+};
+const REVIEW_ICONS = {
+  'Writing':'✍️','Review':'🔍','Approval':'✅',
+  'Periodic Review':'🔁','Amendment':'⚡','Post-incident':'🚨'
+};
+const OUTCOMES = {
+  'Approved — no change':'oc-no-change','Approved — minor amendment':'oc-minor',
+  'Approved — major amendment':'oc-major','Returned for revision':'oc-return',
+  'Superseded':'oc-withdrawn'
+};
+
+let sops=[], editingId=null, detailId=null, sortCol='code', sortDir=1;
+const today=new Date(); today.setHours(0,0,0,0);
+
+window.onload = () => {
+  if (!GAS_URL || GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE') {
+    document.getElementById('setupBanner').style.display='block';
+    document.getElementById('connBadge').textContent='Not connected';
+    document.getElementById('connBadge').className='conn-badge err';
+    loadDemoData();
+  } else { loadData(); }
+};
+
+async function api(payload) {
+  const res = await fetch(GAS_URL, {
+    method:'POST', headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
+async function loadData() {
+  try {
+    document.getElementById('tblBody').innerHTML =
+      '<tr><td colspan="9"><div class="loading"><div class="spinner"></div><br>Loading from Google Sheets…</div></td></tr>';
+    const result = await api({action:'getAll'});
+    if (result.error) throw new Error(result.error);
+    sops = result.sops.map(s => ({
+      ...s,
+      id:      String(s.id||'').trim(),
+      dept:    s.standardGroup||s.dept||'',
+      reviews: (s.reviews||[]).map(r => ({...r, id: String(r.id||'').trim()}))
+    }));
+    document.getElementById('connBadge').textContent='Connected';
+    document.getElementById('connBadge').className='conn-badge ok';
+    renderAll();
+  } catch(err) {
+    document.getElementById('connBadge').textContent='Error';
+    document.getElementById('connBadge').className='conn-badge err';
+    showToast('Connection error: '+err.message, true);
+    renderAll();
+  }
+}
+
+function loadDemoData() {
+  const now = new Date().toISOString().slice(0,10);
+  sops = [
+    {id:'1',code:'IPC-SOP-001',title:'Standard Precautions',dept:'IPC',std:'IPC-1',ver:'2.0',owner:'Dr. Uk Molivann',approver:'Dr. Tum Sambath',effDate:'2024-01-15',revDate:'2026-01-15',status:'Approved',notes:'Updated to WHO 2023 guidelines.',reviews:[
+      {id:'r1',date:'2022-01-10',type:'Approval',by:'Dr. Uk Molivann',verReviewed:'1.0',outcome:'Approved — no change',newVer:'',nextDate:'2023-01-10',notes:'Initial approval of Version 1.0. SOP approved without modification.'},
+      {id:'r2',date:'2023-01-12',type:'Periodic Review',by:'Dr. Uk Molivann',verReviewed:'1.0',outcome:'Approved — major amendment',newVer:'2.0',nextDate:'2026-01-15',notes:'Updated to align with WHO 2023 guidelines. Section 3 (PPE) and Section 5 (waste disposal) revised.'},
+    ]},
+    {id:'2',code:'IPC-SOP-007',title:'Surgical Hand Hygiene',dept:'IPC',std:'IPC-2',ver:'1.0',owner:'Dr. Uk Molivann',approver:'Dr. Sok Kong',effDate:'2024-06-01',revDate:'2026-06-01',status:'Approved',notes:'Based on WHO 5 moments.',reviews:[
+      {id:'r3',date:'2024-06-01',type:'Approval',by:'Dr. Uk Molivann',verReviewed:'1.0',outcome:'Approved — no change',newVer:'',nextDate:'2026-06-01',notes:'Initial release. SOP approved following writing and review stages.'},
+    ]},
+    {id:'3',code:'PC-SOP-001',title:'Active Management of Third Stage Labour',dept:'PC',std:'PC-3',ver:'1.0',owner:'Dr. Hing Narat',approver:'Dr. Tum Sambath',effDate:'',revDate:'2025-09-01',status:'Writing',notes:'Draft — requires clinical review.',reviews:[]},
+    {id:'4',code:'QIS-SOP-003',title:'Incident Reporting & Management',dept:'QIS',std:'QIS-4',ver:'1.1',owner:'Dr. Yeap Kong',approver:'Dr. Sok Kong',effDate:'2024-03-10',revDate:'2025-03-10',status:'Under Review',notes:'Annual review pending.',reviews:[
+      {id:'r4',date:'2023-03-10',type:'Approval',by:'Dr. Yeap Kong',verReviewed:'1.0',outcome:'Approved — minor amendment',newVer:'1.1',nextDate:'2025-03-10',notes:'Approved with minor amendment. Section 2 editorial corrections applied. Approval workflow clarified.'},
+    ]},
+    {id:'5',code:'PFR-SOP-002',title:'Patient Rights & Consent Process',dept:'PFR',std:'PFR-1',ver:'2.1',owner:'Mr. Chheng Sokhim',approver:'Dr. Tum Sambath',effDate:'2023-07-01',revDate:'2024-07-01',status:'Superseded',notes:'Overdue for review — superseded.',reviews:[
+      {id:'r5',date:'2021-07-01',type:'Approval',by:'Mr. Chheng Sokhim',verReviewed:'1.0',outcome:'Approved — no change',newVer:'',nextDate:'2022-07-01',notes:'Initial approval of Version 1.0.'},
+      {id:'r6',date:'2022-07-05',type:'Periodic',by:'Mr. Chheng Sokhim',verReviewed:'1.0',outcome:'Approved — major amendment',newVer:'2.0',nextDate:'2023-07-01',notes:'Major amendment approved. SOP revised to reflect MOH directive on informed consent (2022). New section added on advance directives.'},
+      {id:'r7',date:'2023-07-01',type:'Periodic',by:'Mr. Chheng Sokhim',verReviewed:'2.0',outcome:'Approved — minor amendment',newVer:'2.1',nextDate:'2024-07-01',notes:'Minor amendment approved. Formatting updates applied and Khmer translation of key terms incorporated.'},
+    ]},
+  ];
+  renderAll();
+}
+
+function renderAll() { renderStats(); renderTable(); }
+
+function isOverdue(s) { return s.revDate && new Date(s.revDate)<today && s.status!=='Superseded'; }
+function fmt(d) { if(!d) return '—'; const p=d.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+function badge(s) { return `<span class="badge ${STATUSES[s]||'b-draft'}">${s}</span>`; }
+function reviewTypeBadge(t) { return `<span class="review-type-badge ${REVIEW_TYPES[t]||'rt-other'}">${t}</span>`; }
+function outcomeBadge(o) { return `<span class="outcome-badge ${OUTCOMES[o]||'oc-no-change'}">${o}</span>`; }
+function dotClass(t) {
+  const m={'Writing':'initial','Review':'periodic','Approval':'other','Periodic Review':'periodic','Amendment':'triggered','Post-incident':'incident'};
+  return m[t]||'other';
+}
+
+function renderStats() {
+  const c={}; Object.keys(STATUSES).forEach(k=>c[k]=0);
+  sops.forEach(s=>{if(c[s.status]!==undefined)c[s.status]++;});
+  const od=sops.filter(isOverdue).length;
+  const totalReviews=sops.reduce((a,s)=>a+(s.reviews||[]).length,0);
+  const labels={Writing:'Writing','Under Review':'Under Review',Approved:'Approved',Superseded:'Superseded'};
+  document.getElementById('statsBar').innerHTML=
+    Object.entries(labels).map(([k,v])=>
+      `<div class="stat"><div class="stat-label">${v}</div><div class="stat-val">${c[k]}</div></div>`
+    ).join('')+
+    `<div class="stat"><div class="stat-label">Overdue</div><div class="stat-val danger">${od}</div></div>`+
+    `<div class="stat"><div class="stat-label">Total reviews</div><div class="stat-val">${totalReviews}</div></div>`+
+    `<div class="stat"><div class="stat-label">Total SOPs</div><div class="stat-val">${sops.length}</div></div>`;
+}
+
+function getFiltered() {
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  const st=document.getElementById('filterStatus').value;
+  const dp=document.getElementById('filterDept').value;
+  return sops.filter(s=>{
+    const m=!q||[s.code,s.title,s.owner,s.dept,s.std].some(f=>f&&f.toLowerCase().includes(q));
+    return m&&(!st||s.status===st)&&(!dp||s.dept===dp);
+  });
+}
+
+function sortBy(col) {
+  if(sortCol===col) sortDir*=-1; else {sortCol=col;sortDir=1;}
+  document.querySelectorAll('th span[id^="s-"]').forEach(el=>el.textContent='');
+  const el=document.getElementById('s-'+col);
+  if(el) el.textContent=sortDir===1?' ↑':' ↓';
+  renderTable();
+}
+
+function renderTable() {
+  const rows=getFiltered().slice().sort((a,b)=>{
+    const av=a[sortCol]||'',bv=b[sortCol]||'';
+    return av<bv?-sortDir:av>bv?sortDir:0;
+  });
+  const body=document.getElementById('tblBody');
+  if(!rows.length){
+    body.innerHTML='<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text2);">No SOPs found matching the current filter.</td></tr>';
+    return;
+  }
+  body.innerHTML=rows.map(s=>{
+    const od=isOverdue(s);
+    const rc=(s.reviews||[]).length;
+    const rcBadge=rc>0
+      ? `<span style="display:inline-block;background:var(--teal-lt);color:var(--teal-dk);font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;">${rc}</span>`
+      : `<span style="color:var(--text3);font-size:12px;">—</span>`;
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:12px;">${s.code}</td>
+      <td style="font-weight:500;">${s.title}</td>
+      <td>${s.dept||'—'}</td>
+      <td style="text-align:center;">${s.ver}</td>
+      <td class="${od?'overdue':''}">${fmt(s.revDate)}${od?' ⚠':''}</td>
+      <td>${badge(s.status)}</td>
+      <td style="text-align:center;">${rcBadge}</td>
+      <td style="font-size:12px;">${s.owner||'—'}</td>
+      <td>
+        <button class="btn-sm btn-icon" onclick="viewDetail('${s.id}')" title="View / reviews">👁</button>
+        <button class="btn-sm btn-icon" onclick="openEdit('${s.id}')" title="Edit SOP">✏️</button>
+        <button class="btn-sm btn-icon" onclick="deleteSOP('${s.id}')" title="Delete">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Add / Edit SOP ────────────────────────────────────────────
+function openAdd() {
+  editingId=null;
+  document.getElementById('modalTitle').textContent='Add new SOP';
+  ['fCode','fTitle','fVer','fStd','fOwner','fApprover','fNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fDept').value='';
+  document.getElementById('fEffDate').value='';
+  document.getElementById('fRevDate').value='';
+  document.getElementById('fStatus').value='Draft';
+  document.getElementById('addModal').classList.add('open');
+}
+
+function openEdit(id) {
+  const s=sops.find(x=>String(x.id).trim()===String(id).trim()); if(!s) return;
+  editingId=id;
+  document.getElementById('modalTitle').textContent='Edit SOP';
+  document.getElementById('fCode').value=s.code;
+  document.getElementById('fTitle').value=s.title;
+  document.getElementById('fVer').value=s.ver;
+  document.getElementById('fDept').value=s.dept;
+  document.getElementById('fStd').value=s.std;
+  document.getElementById('fOwner').value=s.owner;
+  document.getElementById('fApprover').value=s.approver;
+  document.getElementById('fEffDate').value=s.effDate;
+  document.getElementById('fRevDate').value=s.revDate;
+  document.getElementById('fStatus').value=s.status;
+  document.getElementById('fNotes').value=s.notes;
+  document.getElementById('addModal').classList.add('open');
+}
+
+function editFromDetail() { closeModal('detailModal'); if(detailId) openEdit(detailId); }
+
+async function saveForm() {
+  const code=document.getElementById('fCode').value.trim();
+  const title=document.getElementById('fTitle').value.trim();
+  const ver=document.getElementById('fVer').value.trim();
+  if(!code||!title||!ver){alert('Please fill in Code, Title, and Version.');return;}
+  const newStatus=document.getElementById('fStatus').value;
+  const sop={
+    id: editingId||'',
+    code,title,ver,
+    dept:          document.getElementById('fDept').value,
+    standardGroup: document.getElementById('fDept').value,
+    std:           document.getElementById('fStd').value.trim(),
+    owner:         document.getElementById('fOwner').value.trim(),
+    reviewer:      document.getElementById('fReviewer').value.trim(),
+    approver:      document.getElementById('fApprover').value.trim(),
+    effDate:       document.getElementById('fEffDate').value,
+    revDate:       document.getElementById('fRevDate').value,
+    status:        newStatus,
+    notes:         document.getElementById('fNotes').value.trim()
+  };
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=true; btn.textContent='Saving…';
+  try {
+    if(GAS_URL&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE') {
+      const result=await api({action:'saveSOP',sop});
+      if(result.error) throw new Error(result.error);
+      await loadData();
+    } else {
+      if(editingId) {
+        const idx=sops.findIndex(x=>x.id===editingId);
+        sops[idx]={...sop, id:editingId, reviews:sops[idx].reviews||[]};
+      } else {
+        sop.id=String(Date.now());
+        sop.reviews=[];
+        sops.push(sop);
+      }
+      renderAll();
+    }
+    closeModal('addModal');
+    showToast(editingId?'SOP updated.':'SOP added.');
+  } catch(err) { showToast('Save failed: '+err.message,true); }
+  btn.disabled=false; btn.textContent='Save SOP';
+}
+
+async function deleteSOP(id) {
+  if(!confirm('Delete this SOP and all its review records? This cannot be undone.')) return;
+  try {
+    if(GAS_URL&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE') {
+      const r=await api({action:'deleteSOP',id});
+      if(r.error) throw new Error(r.error);
+      await loadData();
+    } else {
+      sops=sops.filter(x=>String(x.id).trim()!==String(id).trim());
+      renderAll();
+    }
+    showToast('SOP deleted.');
+  } catch(err) { showToast('Delete failed: '+err.message,true); }
+}
+
+// ── Detail / Reviews ──────────────────────────────────────────
+let activeTab='info';
+
+function switchTab(tab) {
+  activeTab=tab;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(el=>el.classList.remove('active'));
+  const tabs=document.querySelectorAll('.tab');
+  if(tab==='info') { tabs[0].classList.add('active'); document.getElementById('panel-info').classList.add('active'); }
+  else             { tabs[1].classList.add('active'); document.getElementById('panel-reviews').classList.add('active'); }
+}
+
+function viewDetail(id) {
+  const s=sops.find(x=>String(x.id).trim()===String(id).trim()); if(!s) return;
+  detailId=String(id).trim();
+  activeTab='info';
+  document.getElementById('detailTitle').textContent=`${s.code} — ${s.title}`;
+  renderDetailInfo(s);
+  renderReviewTimeline(s);
+  // Reset to info tab
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab')[0].classList.add('active');
+  document.getElementById('panel-info').classList.add('active');
+  // Update review tab label
+  const rc=(s.reviews||[]).length;
+  document.querySelectorAll('.tab')[1].textContent=`Review history${rc>0?' ('+rc+')':''}`;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function renderDetailInfo(s) {
+  const od=isOverdue(s);
+  document.getElementById('detailInfo').innerHTML=`
+    <div class="detail-grid">
+      <div class="detail-field"><label>Status</label><span>${badge(s.status)}</span></div>
+      <div class="detail-field"><label>Version</label><span style="font-weight:600;">${s.ver}</span></div>
+      <div class="detail-field"><label>CHAS standard</label><span>${s.std||'—'}</span></div>
+      <div class="detail-field"><label>Standard group</label><span>${s.dept||'—'}</span></div>
+      <div class="detail-field"><label>Document owner</label><span>${s.owner||'—'}</span></div>
+      <div class="detail-field"><label>Reviewer</label><span>${s.reviewer||'—'}</span></div>
+      <div class="detail-field"><label>Approving authority</label><span>${s.approver||'—'}</span></div>
+      <div class="detail-field"><label>Effective date</label><span>${fmt(s.effDate)}</span></div>
+      <div class="detail-field"><label>Next review date</label><span class="${od?'overdue':''}">${fmt(s.revDate)}${od?' ⚠ Overdue':''}</span></div>
+    </div>
+    ${s.notes?`<div style="padding:12px;background:var(--bg2);border-radius:var(--radius);font-size:13px;line-height:1.6;color:var(--text2);">${s.notes}</div>`:''}`;
+}
+
+function renderReviewTimeline(s) {
+  const reviews=[...(s.reviews||[])].reverse();
+  document.getElementById('reviewCount').textContent=
+    reviews.length===0?'No reviews recorded yet.'
+    :`${reviews.length} review${reviews.length>1?'s':''} recorded`;
+  if(!reviews.length) {
+    document.getElementById('reviewTimeline').innerHTML=`
+      <div class="review-empty">
+        <div class="review-empty-icon">📋</div>
+        No reviews recorded yet.<br>
+        <span style="font-size:12px;">Click <strong>+ Add review record</strong> to log the first review.</span>
+      </div>`;
+    return;
+  }
+  document.getElementById('reviewTimeline').innerHTML=reviews.map(r=>`
+    <div class="review-entry">
+      <div class="review-dot ${dotClass(r.type)}">${REVIEW_ICONS[r.type]||'📋'}</div>
+      <div class="review-content">
+        <div class="review-content-head">
+          <div class="review-content-title">${r.type} review — v${r.verReviewed}</div>
+          <button class="btn-sm" onclick="deleteReview('${s.id}','${r.id}')" title="Delete this review" style="font-size:11px;padding:3px 7px;">Remove</button>
+        </div>
+        <div class="review-content-meta">📅 ${fmt(r.date)} &nbsp;·&nbsp; ✍️ ${r.by}${r.reviewer?' &nbsp;·&nbsp; 🔍 '+r.reviewer:''} ${r.nextDate?`&nbsp;·&nbsp; Next review: ${fmt(r.nextDate)}`:''}</div>
+        <div class="review-badges">
+          ${reviewTypeBadge(r.type)}
+          ${outcomeBadge(r.outcome)}
+          ${r.newVer?`<span style="background:var(--purple-lt);color:var(--purple-dk);font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;">→ v${r.newVer}</span>`:''}
+        </div>
+        ${r.notes?`<div class="review-note">${r.notes}</div>`:''}
+      </div>
+    </div>`).join('');
+}
+
+// ── Add Review ────────────────────────────────────────────────
+function openAddReview() {
+  const s=sops.find(x=>String(x.id).trim()===String(detailId).trim()); if(!s) return;
+  document.getElementById('reviewModalTitle').textContent=`Add review — ${s.code}`;
+  document.getElementById('rDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('rType').value='Writing';
+  document.getElementById('rReviewer').value='';
+  document.getElementById('rBy').value='';
+  document.getElementById('rVer').value=s.ver;
+  document.getElementById('rOutcome').value='Approved — no change';
+  document.getElementById('rNewVer').value='';
+  document.getElementById('rNextDate').value='';
+  document.getElementById('rNotes').value='';
+  document.getElementById('reviewModal').classList.add('open');
+}
+
+async function saveReview() {
+  const date=document.getElementById('rDate').value;
+  const by=document.getElementById('rBy').value.trim();
+  const type=document.getElementById('rType').value;
+  if(!date||!by){alert('Please fill in Review date and Reviewed by.');return;}
+  const review={
+    id: 'r'+Date.now(),
+    date,type,by,
+    reviewer:    document.getElementById('rReviewer').value.trim(),
+    verReviewed: document.getElementById('rVer').value.trim(),
+    outcome:     document.getElementById('rOutcome').value,
+    newVer:      document.getElementById('rNewVer').value.trim(),
+    nextDate:    document.getElementById('rNextDate').value,
+    notes:       document.getElementById('rNotes').value.trim()
+  };
+  const btn=document.getElementById('reviewSaveBtn');
+  btn.disabled=true; btn.textContent='Saving…';
+  try {
+    const s=sops.find(x=>String(x.id).trim()===String(detailId).trim());
+    if(GAS_URL&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE') {
+      const result=await api({action:'addReview', sopId:detailId, sopCode:s.code, review});
+      if(result.error) throw new Error(result.error);
+      // If new version or next date — update SOP record too
+      if(review.newVer) { s.ver=review.newVer; await api({action:'saveSOP',sop:{...s,standardGroup:s.dept}}); }
+      if(review.nextDate) { s.revDate=review.nextDate; await api({action:'saveSOP',sop:{...s,standardGroup:s.dept}}); }
+      await loadData();
+      const updated=sops.find(x=>x.id===detailId);
+      if(updated) { renderDetailInfo(updated); renderReviewTimeline(updated); }
+    } else {
+      if(!s.reviews) s.reviews=[];
+      s.reviews.push(review);
+      if(review.newVer) s.ver=review.newVer;
+      if(review.nextDate) s.revDate=review.nextDate;
+      renderAll();
+      renderDetailInfo(s);
+      renderReviewTimeline(s);
+      const rc=s.reviews.length;
+      document.querySelectorAll('.tab')[1].textContent=`Review history (${rc})`;
+      document.getElementById('reviewCount').textContent=`${rc} review${rc>1?'s':''} recorded`;
+    }
+    closeModal('reviewModal');
+    showToast('Review record saved.');
+    switchTab('reviews');
+  } catch(err) { showToast('Save failed: '+err.message,true); }
+  btn.disabled=false; btn.textContent='Save review';
+}
+
+async function deleteReview(sopId, reviewId) {
+  if(!confirm('Remove this review record?')) return;
+  const s=sops.find(x=>String(x.id).trim()===String(sopId).trim()); if(!s) return;
+  try {
+    if(GAS_URL&&GAS_URL!=='YOUR_GAS_WEB_APP_URL_HERE') {
+      const result=await api({action:'deleteReview',sopId,reviewId});
+      if(result.error) throw new Error(result.error);
+      await loadData();
+      const updated=sops.find(x=>x.id===sopId);
+      if(updated){renderDetailInfo(updated);renderReviewTimeline(updated);}
+    } else {
+      s.reviews=(s.reviews||[]).filter(r=>r.id!==reviewId);
+      renderAll();
+      renderDetailInfo(s);
+      renderReviewTimeline(s);
+    }
+    showToast('Review removed.');
+  } catch(err) { showToast('Error: '+err.message,true); }
+}
+
+// ── Excel Export ──────────────────────────────────────────────
+const SOP_HDRS=['SOP Code','Title','Standard Group','CHAS Standard','Version','Status',
+  'Document Owner','Approving Authority','Effective Date','Next Review Date','Overdue','Notes'];
+const REV_HDRS=['SOP Code','SOP Title','Review #','Review Date','Review Type','Written / Revised By','Reviewer',
+  'Version Reviewed','Outcome','New Version','Next Review Date','Findings & Notes'];
+
+function sopToRow(s) {
+  return {'SOP Code':s.code,'Title':s.title,'Standard Group':s.dept,'CHAS Standard':s.std,
+    'Version':s.ver,'Status':s.status,'Document Owner':s.owner,'Approving Authority':s.approver,
+    'Effective Date':s.effDate||'','Next Review Date':s.revDate||'',
+    'Overdue':isOverdue(s)?'YES':'','Notes':s.notes||''};
+}
+
+function reviewRows(src) {
+  const rows=[];
+  src.forEach(s=>{
+    const revs=[...(s.reviews||[])].sort((a,b)=>a.date>b.date?1:-1);
+    revs.forEach((r,i)=>rows.push({
+      'SOP Code':s.code,'SOP Title':s.title,'Review #':i+1,
+      'Review Date':r.date,'Review Type':r.type,'Written / Revised By':r.by,'Reviewer':r.reviewer||'',
+      'Version Reviewed':r.verReviewed,'Outcome':r.outcome,
+      'New Version':r.newVer||'','Next Review Date':r.nextDate||'',
+      'Findings & Notes':r.notes||''
+    }));
+  });
+  return rows;
+}
+
+function exportExcel(mode) {
+  const wb=XLSX.utils.book_new();
+  let src, filename;
+  if(mode==='all')      { src=sops;               filename='KCPH_SOP_All.xlsx'; }
+  if(mode==='filtered') { src=getFiltered();       filename='KCPH_SOP_Filtered.xlsx'; }
+  if(mode==='overdue')  { src=sops.filter(isOverdue); filename='KCPH_SOP_Overdue.xlsx'; }
+  if(mode==='summary') {
+    const sc={}; Object.keys(STATUSES).forEach(k=>sc[k]=0);
+    sops.forEach(s=>{if(sc[s.status]!==undefined)sc[s.status]++;});
+    const dc={}; sops.forEach(s=>{if(s.dept)dc[s.dept]=(dc[s.dept]||0)+1;});
+    const od=sops.filter(isOverdue);
+    const totalRev=sops.reduce((a,s)=>a+(s.reviews||[]).length,0);
+    const sumRows=[
+      {A:'KCPH SOP Amendment Tracker — Summary Report'},{A:'Kampong Chhnang Provincial Hospital'},
+      {A:`Generated: ${new Date().toLocaleDateString('en-GB')}`},{A:''},
+      {A:'STATUS BREAKDOWN',B:''},{A:'Total SOPs',B:sops.length},{A:'Total review records',B:totalRev},
+      ...Object.entries(sc).map(([k,v])=>({A:k,B:v})),
+      {A:'Overdue',B:od.length},{A:''},
+      {A:'BY STANDARD GROUP',B:''},
+      ...Object.entries(dc).sort().map(([k,v])=>({A:k,B:v})),{A:''},
+      {A:'OVERDUE SOPs',B:''},
+      ...(od.length?od.map(s=>({A:`${s.code} — ${s.title}`,B:`Due: ${fmt(s.revDate)}`})):[{A:'None',B:''}])
+    ];
+    const ws1=XLSX.utils.json_to_sheet(sumRows,{header:['A','B'],skipHeader:true});
+    ws1['!cols']=[{wch:55},{wch:20}];
+    XLSX.utils.book_append_sheet(wb,ws1,'Summary');
+    const ws2=XLSX.utils.json_to_sheet(sops.map(sopToRow),{header:SOP_HDRS});
+    ws2['!cols']=SOP_HDRS.map(h=>({wch:Math.max(h.length+2,18)}));
+    XLSX.utils.book_append_sheet(wb,ws2,'All SOPs');
+    const rr=reviewRows(sops);
+    if(rr.length){
+      const wr=XLSX.utils.json_to_sheet(rr,{header:REV_HDRS});
+      wr['!cols']=REV_HDRS.map(h=>({wch:Math.max(h.length+2,16)}));
+      XLSX.utils.book_append_sheet(wb,wr,'Review Records');
+    }
+    XLSX.writeFile(wb,'KCPH_SOP_Summary_Report.xlsx');
+    showToast('Exported: KCPH_SOP_Summary_Report.xlsx');
+    return;
+  }
+  if(!src||!src.length){showToast('No records to export.',true);return;}
+  const ws=XLSX.utils.json_to_sheet(src.map(sopToRow),{header:SOP_HDRS});
+  ws['!cols']=SOP_HDRS.map(h=>({wch:Math.max(h.length+2,18)}));
+  XLSX.utils.book_append_sheet(wb,ws,'SOPs');
+  const rr=reviewRows(src);
+  if(rr.length){
+    const wr=XLSX.utils.json_to_sheet(rr,{header:REV_HDRS});
+    wr['!cols']=REV_HDRS.map(h=>({wch:Math.max(h.length+2,16)}));
+    XLSX.utils.book_append_sheet(wb,wr,'Review Records');
+  }
+  XLSX.writeFile(wb,filename);
+  showToast('Exported: '+filename);
+}
+
+function exportSingle() {
+  const s=sops.find(x=>String(x.id).trim()===String(detailId).trim()); if(!s) return;
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet([sopToRow(s)],{header:SOP_HDRS});
+  ws['!cols']=SOP_HDRS.map(h=>({wch:Math.max(h.length+2,20)}));
+  XLSX.utils.book_append_sheet(wb,ws,'SOP Record');
+  const rr=reviewRows([s]);
+  if(rr.length){
+    const wr=XLSX.utils.json_to_sheet(rr,{header:REV_HDRS});
+    wr['!cols']=REV_HDRS.map(h=>({wch:Math.max(h.length+2,16)}));
+    XLSX.utils.book_append_sheet(wb,wr,'Review History');
+  }
+  const fname=`KCPH_${s.code.replace(/[^a-z0-9]/gi,'_')}.xlsx`;
+  XLSX.writeFile(wb,fname);
+  showToast('Exported: '+fname);
+}
+
+// ── HTML: Amendment Page (print-to-PDF) ───────────────────────
+function exportReviewHTML() {
+  const s = sops.find(x => String(x.id).trim()===String(detailId).trim());
+  if (!s) return;
+
+  const revs = [...(s.reviews || [])].sort((a,b) => a.date > b.date ? 1 : -1);
+  const generated = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
+  const docRef = 'KCPH/SOP-REVIEW/' + s.code + '/' + new Date().getFullYear();
+  const isod = s.revDate && new Date(s.revDate) < today && s.status !== 'Superseded';
+  // Pre-resolve dates and per-review values so fmt() works inside template literals
+  const fmtEffDate  = fmt(s.effDate);
+  const fmtRevDate  = fmt(s.revDate);
+  const resolvedRevs = revs.map(r => ({
+    ...r,
+    fmtDate:     fmt(r.date),
+    fmtNextDate: r.nextDate ? fmt(r.nextDate) : '—'
+  }));
+
+  function ocStyle(o) {
+    if (o === 'Approved — no change')     return 'background:#EAF3DE;color:#27500A;';
+    if (o === 'Approved — minor amendment')    return 'background:#E1F5EE;color:#085041;';
+    if (o === 'Approved — major amendment')    return 'background:#FAEEDA;color:#633806;';
+    if (o === 'Returned for revision')         return 'background:#EEEDFE;color:#3C3489;';
+    if (o === 'Superseded')                    return 'background:#FCEBEB;color:#791F1F;';
+    return 'background:#F1EFE8;color:#444441;';
+  }
+  function typeStyle(t) {
+    if (t === 'Writing')         return 'background:#E6F1FB;color:#0C447C;';
+    if (t === 'Review')          return 'background:#E1F5EE;color:#085041;';
+    if (t === 'Approval')        return 'background:#EAF3DE;color:#27500A;';
+    if (t === 'Periodic Review') return 'background:#E1F5EE;color:#085041;';
+    if (t === 'Amendment')       return 'background:#FAEEDA;color:#633806;';
+    if (t === 'Post-incident')   return 'background:#FCEBEB;color:#791F1F;';
+    return 'background:#F1EFE8;color:#444441;';
+  }
+  function pill(text, style) {
+    return '<span style="display:inline-block;padding:2px 9px;border-radius:3px;font-size:9pt;font-weight:700;' + style + '">' + text + '</span>';
+  }
+
+  const summaryRows = resolvedRevs.map((r, i) => `
+    <tr style="${i % 2 === 0 ? '' : 'background:#F7F8FC;'}">
+      <td style="text-align:center;font-weight:700;">${i+1}</td>
+      <td>${r.fmtDate}</td>
+      <td>${pill(r.type, typeStyle(r.type))}</td>
+      <td>${r.by || '—'}</td>
+      <td>${r.reviewer || '—'}</td>
+      <td style="text-align:center;">${r.verReviewed || '—'}</td>
+      <td>${pill(r.outcome, ocStyle(r.outcome))}${r.newVer ? ' <span style="font-size:8.5pt;color:#534AB7;font-weight:700;">→ v' + r.newVer + '</span>' : ''}</td>
+    </tr>`).join('');
+
+  const detailCards = resolvedRevs.length === 0
+    ? '<p style="color:#888;font-style:italic;font-size:9pt;margin-bottom:12px;">No review records have been entered for this Standard Operating Procedure.</p>'
+    : resolvedRevs.map((r, i) => `
+    <div style="margin-bottom:12px;border:1px solid #ddd;border-radius:5px;overflow:hidden;page-break-inside:avoid;">
+      <div style="background:#0D3B66;color:#fff;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:10pt;font-weight:700;">Review No. ${i+1} &nbsp;&mdash;&nbsp; ${r.type}</span>
+        <span style="font-size:9pt;opacity:.85;">${r.fmtDate}</span>
+      </div>
+      <div style="padding:10px 12px;background:#fff;">
+        <table style="width:100%;border-collapse:collapse;margin-bottom:8px;"><tr>
+          <td style="width:25%;vertical-align:top;padding-right:12px;">
+            <div style="font-size:7.5pt;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Review Type</div>
+            ${pill(r.type, typeStyle(r.type))}
+          </td>
+          <td style="width:25%;vertical-align:top;padding-right:12px;">
+            <div style="font-size:7.5pt;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Written / Revised By</div>
+            <div style="font-size:9.5pt;">${r.by || '&mdash;'}</div>
+          </td>
+          <td style="width:25%;vertical-align:top;padding-right:12px;">
+            <div style="font-size:7.5pt;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Reviewer</div>
+            <div style="font-size:9.5pt;">${r.reviewer || '&mdash;'}</div>
+          </td>
+          <td style="width:25%;vertical-align:top;">
+            <div style="font-size:7.5pt;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Version Reviewed</div>
+            <div style="font-size:9.5pt;">Version ${r.verReviewed || '&mdash;'}</div>
+          </td>
+        </tr></table>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:${r.notes ? '8px' : '0'};"><tr>
+          <td style="width:33%;vertical-align:top;padding-right:12px;">
+            <div style="font-size:7.5pt;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Outcome</div>
+            ${pill(r.outcome, ocStyle(r.outcome))}
+          </td>
+          <td style="width:33%;vertical-align:top;padding-right:12px;">
+            <div style="font-size:7.5pt;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">New Version</div>
+            <div style="font-size:9.5pt;">${r.newVer ? 'Version ' + r.newVer : '&mdash;'}</div>
+          </td>
+          <td style="width:33%;vertical-align:top;">
+            <div style="font-size:7.5pt;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Next Review Date</div>
+            <div style="font-size:9.5pt;">${r.fmtNextDate}</div>
+          </td>
+        </tr></table>
+        ${r.notes ? '<div><div style="font-size:7.5pt;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Review Findings &amp; Notes</div><div style="background:#F5F7FA;border-left:3px solid #185FA5;padding:7px 10px;font-size:9pt;line-height:1.6;border-radius:0 3px 3px 0;">' + r.notes + '</div></div>' : ''}
+      </div>
+    </div>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Amendment Page &mdash; ${s.code}</title>
+<style>
+  @page { size: A4; margin: 15mm 18mm 16mm 18mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 9.5pt; color: #1a1a1a; background: #fff; }
+  .page-header { background: #0D3B66; color: #fff; padding: 9px 14px 7px; margin-bottom: 9px; }
+  .ph-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .ph-hospital { font-size: 11pt; font-weight: 700; letter-spacing: .02em; }
+  .ph-doc-type { font-size: 9.5pt; font-weight: 700; text-align: right; }
+  .ph-sub { font-size: 8pt; opacity: .75; margin-top: 2px; }
+  .ph-accent { height: 2px; background: #185FA5; margin-top: 6px; }
+  .ref-bar { display: flex; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 9px; overflow: hidden; }
+  .ref-cell { flex: 1; padding: 5px 10px; background: #F5F7FA; border-right: 1px solid #ddd; }
+  .ref-cell:last-child { border-right: none; }
+  .ref-label { font-size: 7pt; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .ref-value { font-size: 9pt; font-weight: 700; }
+  .report-title { font-size: 15pt; font-weight: 700; color: #0D3B66; margin-bottom: 1px; }
+  .report-sub { font-size: 8.5pt; color: #888; margin-bottom: 8px; }
+  .divider { border: none; border-top: 1.5px solid #185FA5; margin-bottom: 9px; }
+  .sop-block { border: 1px solid #ddd; border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
+  .sop-block-head { background: #0D3B66; color: #fff; padding: 5px 12px; font-size: 8pt; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .sop-block-body { padding: 9px 12px; background: #FAFBFD; }
+  .sop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 20px; }
+  .sop-label { font-size: 7.5pt; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 1px; }
+  .sop-value { font-size: 9.5pt; }
+  .section-heading { font-size: 10pt; font-weight: 700; color: #0D3B66; margin: 10px 0 4px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
+  .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 8.5pt; }
+  .summary-table th { background: #0D3B66; color: #fff; padding: 5px 8px; text-align: left; font-size: 7.5pt; font-weight: 700; letter-spacing: .04em; }
+  .summary-table td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  .cert-block { border: 1px solid #ddd; border-radius: 5px; padding: 9px 12px; background: #FAFBFD; margin-top: 10px; font-size: 8.5pt; line-height: 1.65; color: #3a3a3a; }
+  .cert-title { font-size: 10pt; font-weight: 700; color: #0D3B66; margin-bottom: 5px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
+  .sig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 14px; }
+  .sig-box { border-top: 1px solid #bbb; padding-top: 5px; }
+  .sig-label { font-size: 7.5pt; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .sig-name { font-size: 9pt; font-weight: 700; margin-bottom: 3px; }
+  .sig-line { font-size: 8pt; color: #999; }
+  .page-footer { margin-top: 12px; border-top: 1px solid #ddd; padding-top: 5px; display: flex; justify-content: space-between; font-size: 7pt; color: #aaa; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none !important; }
+  }
+  @media screen {
+    body { max-width: 800px; margin: 24px auto; padding: 0 20px 40px; background: #f0ede8; }
+    .page-wrap { background: #fff; padding: 18mm; box-shadow: 0 2px 24px rgba(0,0,0,.12); }
+    .no-print { text-align: center; margin-bottom: 16px; }
+    .print-btn { background: #0D3B66; color: #fff; border: none; padding: 10px 28px; font-size: 13px; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600; }
+    .print-btn:hover { background: #185FA5; }
+  }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <button class="print-btn" onclick="window.print()">&#128438; Print / Save as PDF</button>
+</div>
+
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div class="ph-top">
+      <div>
+        <div class="ph-hospital">KAMPONG CHHNANG PROVINCIAL HOSPITAL</div>
+        <div class="ph-sub">Quality Management System &nbsp;|&nbsp; CHAS Accreditation Programme</div>
+      </div>
+      <div class="ph-doc-type">SOP AMENDMENT PAGE<br><span style="font-size:7.5pt;font-weight:400;opacity:.75;">Document Control Record</span></div>
+    </div>
+    <div class="ph-accent"></div>
+  </div>
+
+  <div class="ref-bar">
+    <div class="ref-cell"><div class="ref-label">Document Reference</div><div class="ref-value">${docRef}</div></div>
+    <div class="ref-cell"><div class="ref-label">Date Generated</div><div class="ref-value">${generated}</div></div>
+    <div class="ref-cell"><div class="ref-label">Current Status</div><div class="ref-value" style="${isod ? 'color:#A32D2D;' : 'color:#3B6D11;'}">${s.status.toUpperCase()}</div></div>
+    <div class="ref-cell"><div class="ref-label">Total Reviews</div><div class="ref-value">${revs.length}</div></div>
+  </div>
+
+  <div class="report-title">SOP Amendment Page</div>
+  <div class="report-sub">Review and Amendment Record — Writing, Review, and Approval Process</div>
+  <hr class="divider">
+
+  <div class="sop-block">
+    <div class="sop-block-head">Standard Operating Procedure &mdash; Document Particulars</div>
+    <div class="sop-block-body">
+      <div class="sop-grid">
+        <div><div class="sop-label">SOP Code</div><div class="sop-value" style="font-weight:700;font-family:monospace;">${s.code}</div></div>
+        <div><div class="sop-label">Current Version</div><div class="sop-value" style="font-weight:700;">Version ${s.ver}</div></div>
+        <div><div class="sop-label">Title</div><div class="sop-value">${s.title}</div></div>
+        <div><div class="sop-label">Standard Group</div><div class="sop-value">${s.dept || '&mdash;'}</div></div>
+        <div><div class="sop-label">CHAS Standard</div><div class="sop-value">${s.std || '&mdash;'}</div></div>
+        <div><div class="sop-label">Effective Date</div><div class="sop-value">${fmtEffDate}</div></div>
+        <div><div class="sop-label">Document Owner</div><div class="sop-value">${s.owner || '&mdash;'}</div></div>
+        <div><div class="sop-label">Reviewer</div><div class="sop-value">${s.reviewer || '&mdash;'}</div></div>
+        <div><div class="sop-label">Next Review Date</div><div class="sop-value" style="${isod ? 'color:#A32D2D;font-weight:700;' : ''}">${fmtRevDate}${isod ? ' &nbsp;&#9888; Overdue' : ''}</div></div>
+        <div><div class="sop-label">Approving Authority</div><div class="sop-value">${s.approver || '&mdash;'}</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-heading">Review Activity Summary</div>
+  ${revs.length === 0
+    ? '<p style="color:#888;font-style:italic;font-size:9pt;margin-bottom:10px;">No review records have been entered for this Standard Operating Procedure.</p>'
+    : `<table class="summary-table"><thead><tr>
+        <th style="width:22px;">No.</th>
+        <th style="width:82px;">Date</th>
+        <th style="width:90px;">Type</th>
+        <th>Written / Revised By</th>
+        <th>Reviewer</th>
+        <th style="width:36px;text-align:center;">Ver.</th>
+        <th>Outcome</th>
+      </tr></thead><tbody>${summaryRows}</tbody></table>`}
+
+  <div class="section-heading">Detailed Review Records</div>
+  ${detailCards}
+
+  <div class="cert-block">
+    <div class="cert-title">Document Certification</div>
+    <p>This Amendment Page constitutes an official record of the review and amendment history for the Standard Operating
+    Procedure identified above. All review activities documented herein were conducted in accordance with the Quality
+    Management System of Kampong Chhnang Provincial Hospital and the requirements of the CHAS Accreditation Programme.
+    This document is subject to document control procedures and shall not be reproduced or distributed without the
+    authorisation of the Technical Office.</p>
+    <div class="sig-row">
+      <div class="sig-box">
+        <div class="sig-label">Prepared by (Document Owner)</div>
+        <div class="sig-name">${s.owner || '&nbsp;'}</div>
+        <div class="sig-line">Name &amp; Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date: _______________</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-label">Reviewed &amp; Certified (Technical Office)</div>
+        <div class="sig-name">Dr. Yeap Kong</div>
+        <div class="sig-line">Name &amp; Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date: _______________</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>Reference: ${docRef}</span>
+    <span>CONFIDENTIAL &mdash; For authorised personnel only</span>
+    <span>Generated: ${generated}</span>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'KCPH_Amendment_Page_' + s.code.replace(/[^a-z0-9]/gi,'_') + '.html';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Amendment page downloaded — open in browser and print to PDF.');
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function showToast(msg,err=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=err?'err show':'show';
+  setTimeout(()=>t.className='',2800);
+}
+</script>
+</body>
+</html>
